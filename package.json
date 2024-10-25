@@ -1,0 +1,38 @@
+{
+  "name": "data_louna",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "db": "drizzle-kit",
+    "typecheck:watch": "tsc --watch --noEmit",
+    "db:seed": "node --env-file .env --experimental-transform-types drizzle/seed.ts",
+    "db:seed:prod": "node --experimental-transform-types drizzle/seed.ts",
+    "db:unseed": "node --env-file .env --experimental-transform-types drizzle/unseed.ts",
+    "db:migration:generate": "drizzle-kit generate",
+    "start:watch": "node --env-file .env --watch --experimental-transform-types src/index.ts",
+    "start:prod": "node --experimental-transform-types src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@effect/experimental": "^0.30.9",
+    "@effect/platform": "^0.69.8",
+    "@effect/platform-node": "^0.64.9",
+    "@effect/sql": "^0.18.9",
+    "@effect/sql-drizzle": "^0.16.9",
+    "@effect/sql-pg": "^0.18.9",
+    "drizzle-kit": "^0.26.2",
+    "drizzle-orm": "^0.35.3",
+    "effect": "^3.10.3",
+    "jsonwebtoken": "^9.0.2",
+    "redis": "^4.7.0",
+    "tslib": "^2.8.0"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^22.8.0",
+    "typescript": "^5.6.3"
+  }
+}

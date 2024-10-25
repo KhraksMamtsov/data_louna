@@ -1,0 +1,107 @@
+version: "3.8"
+services:
+  cache:
+    container_name: cache
+    image: redis:7.2-alpine
+    restart: always
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+    networks:
+      - application_network
+    command:
+      - /bin/sh
+      - -c
+      # - Double dollars, so that the variable is not expanded by Docker Compose
+      # - Surround by quotes, so that the shell does not split the password
+      # - The ${variable:?message} syntax causes shell to exit with a non-zero
+      #   code and print a message, when the variable is not set or empty
+      - redis-server --requirepass "$${REDIS_PASSWORD:?REDIS_PASSWORD variable is not set}"
+    ports:
+      - "${REDIS_PORT}:6379"
+#    volumes:
+#      - redis:/var/lib/redis/data
+#      - /path/to/local/redis.conf:/usr/local/etc/redis/redis.conf
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+  
+  database:
+    container_name: database
+    image: postgres:16-alpine
+    user: postgres
+    command: [
+      "sh", "-c",
+      "mkdir -p /logs && chown postgres:postgres /logs && \
+       postgres -c log_destination=stderr,csvlog,jsonlog \
+                -c logging_collector=on \
+                -c log_statement=all \
+                -c log_directory=/logs"
+    ]
+    networks:
+      - application_network
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    restart: always
+    # https://stackoverflow.com/questions/65115627/safe-ways-to-specify-postgres-parameters-for-healthchecks-in-docker-compose
+    healthcheck:
+      test: [ "CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - database_data:/var/lib/postgresql/data
+      - database_logs:/logs:z
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: "${POSTGRES_DB}"
+
+  api:
+    container_name: api
+    networks:
+      - application_network
+    depends_on:
+      database:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+    volumes:
+      - ./src:/usr/app/src
+      - /usr/app/node_modules
+      - ./prisma:/usr/app/prisma
+    ports:
+      - "${API_PORT}:3000"
+    healthcheck:
+      test: wget --quiet --tries=1 --spider http://localhost/health-check/ping || exit 1
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: always
+    environment:
+      API_PORT: "${API_PORT}"
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_HOST: "${POSTGRES_HOST}"
+      POSTGRES_PORT: "${POSTGRES_PORT}"
+      POSTGRES_DB: "${POSTGRES_DB}"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+      REDIS_PORT: "${REDIS_PORT}"
+      REDIS_HOST: "${REDIS_HOST}"
+      JWT_ACCESS_TOKEN_SECRET: "${JWT_ACCESS_TOKEN_SECRET}"
+      JWT_ACCESS_TOKEN_TTL: "${JWT_ACCESS_TOKEN_TTL}"
+      JWT_REFRESH_TOKEN_SECRET: "${JWT_REFRESH_TOKEN_SECRET}"
+      JWT_REFRESH_TOKEN_TTL: "${JWT_REFRESH_TOKEN_TTL}"
+      SKINPORT_API_URL: "${SKINPORT_API_URL}"
+      PASSWORD_SALT: "${PASSWORD_SALT}"
+
+networks:
+  application_network:
+    name: data-louna-network
+
+volumes:
+  database_data:
+    name: data-louna-database
+  database_logs:
+    name: data-louna-database-logs
